@@ -44,15 +44,15 @@ func NewGroup(name string, maxMemory int64, getter Getter) *Group {
 }
 
 func GetGroup(name string) *Group {
-	mu.RLocker()
+	mu.RLock()
+	defer mu.RUnlock()
 	g := groups[name]
-	mu.RUnlock()
 	return g
 }
 
 func (g *Group) Get(key string) (ByteView, error) {
 	if key == "" {
-		return ByteView{}, fmt.Errorf("Key is required")
+		return ByteView{}, fmt.Errorf("key is required")
 	}
 
 	if v, ok := g.mainCache.get(key); ok {
