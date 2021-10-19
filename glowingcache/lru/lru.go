@@ -19,7 +19,7 @@ type cacheNode struct {
 }
 
 type CacheNodeValue interface {
-	len() int
+	Len() int
 }
 
 func NewLRUCache(maxMemo int64, onEvicted func(string, CacheNodeValue)) *Cache {
@@ -57,7 +57,7 @@ func (cache *Cache) Put(key string, value CacheNodeValue) {
 	if element, ok := cache.cacheMap[key]; ok {
 		cache.doubleList.MoveToFront(element)
 		node := element.Value.(*cacheNode)
-		cache.usedMemory += int64(value.len()) - int64(node.value.len())
+		cache.usedMemory += int64(value.Len()) - int64(node.value.Len())
 		node.value = value
 	} else {
 		front := cache.doubleList.PushFront(&cacheNode{
@@ -73,5 +73,5 @@ func (cache *Cache) Put(key string, value CacheNodeValue) {
 }
 
 func calculateCacheNodeMemory(node *cacheNode) int64 {
-	return int64(len(node.key)) + int64(node.value.len())
+	return int64(len(node.key)) + int64(node.value.Len())
 }
