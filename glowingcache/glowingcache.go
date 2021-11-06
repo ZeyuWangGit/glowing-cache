@@ -36,7 +36,7 @@ func NewGroup(name string, maxSize int64, getter Getter) *Group {
 func GetGroup(name string) *Group {
 	mu.RLock()
 	group := groups[name]
-	mu.Unlock()
+	mu.RUnlock()
 	return group
 }
 
