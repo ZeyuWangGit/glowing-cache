@@ -10,30 +10,30 @@ import (
 const defaultBasePath = "/_glowingcache/"
 
 type HTTPPool struct {
-	selfPath string
+	self     string
 	basePath string
 }
 
-func NewHttpPool(path string) *HTTPPool {
+func NewHttpPool(self string) *HTTPPool {
 	return &HTTPPool{
-		selfPath: path,
+		self:     self,
 		basePath: defaultBasePath,
 	}
 }
 
-func (p *HTTPPool) Log(format string, v ...interface{})  {
-	log.Printf("[Servier %s] %s", p.selfPath, fmt.Sprintf(format, v...))
+func (p *HTTPPool) Log(format string, v ...interface{}) {
+	log.Printf("[Server %s] %s", p.self, fmt.Sprintf(format, v...))
 }
 
-func (p *HTTPPool) ServeHTTP(writer http.ResponseWriter, request *http.Request)  {
-	if !strings.HasPrefix(request.URL.Path, p.basePath) {
-		panic("HTTPPool serving unexpected request. Path " + request.URL.Path)
+func (p *HTTPPool) ServeHTTP(w http.ResponseWriter, r *http.Request) {
+	if  !strings.HasPrefix(r.URL.Path, p.basePath) {
+		panic("HTTPPool serving unexpected request: " + r.URL.Path)
 	}
-	p.Log("%s %s", request.Method, request.URL.Path)
-	// /<basepath>/<groupname>/<key>
-	parts := strings.SplitN(request.URL.Path[len(p.basePath):], "/", 2)
+	p.Log("%s %s", r.Method, r.URL.Path)
+	// /<basepath>/<groupname>/<key> required
+	parts := strings.SplitN(r.URL.Path[len(p.basePath):], "/", 2)
 	if len(parts) != 2 {
-		http.Error(writer, "Bad Request", http.StatusBadRequest)
+		http.Error(w, "Bad Request", http.StatusBadRequest)
 		return
 	}
 	groupName := parts[0]
@@ -41,17 +41,14 @@ func (p *HTTPPool) ServeHTTP(writer http.ResponseWriter, request *http.Request) 
 
 	group := GetGroup(groupName)
 	if group == nil {
-		http.Error(writer, "Group Not Found", http.StatusNotFound)
+		http.Error(w, "Group Not Found" + groupName , http.StatusNotFound)
 		return
 	}
-
 	view, err := group.Get(key)
 	if err != nil {
-		http.Error(writer, err.Error(), http.StatusInternalServerError)
+		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
 	}
-
-	writer.Header().Set("Content-Type", "application/octet-stream")
-	writer.Write(view.ByteSlice())
-
+	w.Header().Set("Content-Type", "application/octet-stream")
+	w.Write(view.ByteSlice())
 }

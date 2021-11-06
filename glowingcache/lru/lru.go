@@ -1,20 +1,24 @@
 package lru
 
-import (
-	"container/list"
-)
+import "container/list"
 
+// Cache LRU with
+// A double List
+// A map
+// max memory size
+// used memory size
+// callback function when an entry is purged OnEvicted
 type Cache struct {
 	doubleList *list.List
-	cacheMap   map[string]*list.Element
-	maxMemory  int64
+	cacheMap map[string]*list.Element
+	maxMemory int64
 	usedMemory int64
-	// optional and executed when an entry is purged.
-	OnEvicted func(key string, value CacheNodeValue)
+	onEvicted func(key string, value CacheNodeValue)
 }
 
+// cacheNode with key, value pair
 type cacheNode struct {
-	key   string
+	key string
 	value CacheNodeValue
 }
 
@@ -22,16 +26,19 @@ type CacheNodeValue interface {
 	Len() int
 }
 
-func NewLRUCache(maxMemo int64, onEvicted func(string, CacheNodeValue)) *Cache {
+// New constructor of cache
+func New(maxMemo int64, onEvicted func(key string, value CacheNodeValue)) *Cache{
 	return &Cache{
 		doubleList: list.New(),
-		cacheMap:   make(map[string]*list.Element),
-		OnEvicted:  onEvicted,
-		maxMemory:  maxMemo,
+		cacheMap: make(map[string]*list.Element),
+		maxMemory: maxMemo,
+		usedMemory: 0,
+		onEvicted: onEvicted,
 	}
 }
 
-func (cache *Cache) Get(key string) (value CacheNodeValue, ok bool) {
+// Get look ups a key's value
+func (cache *Cache) Get(key string) (CacheNodeValue, bool) {
 	if element, ok := cache.cacheMap[key]; ok {
 		cache.doubleList.MoveToFront(element)
 		node := element.Value.(*cacheNode)
@@ -40,19 +47,21 @@ func (cache *Cache) Get(key string) (value CacheNodeValue, ok bool) {
 	return nil, false
 }
 
-func (cache *Cache) RemoveLeastRecently() {
+// RemoveLeastRecently removes the oldest item
+func (cache *Cache) RemoveLeastRecently()  {
 	element := cache.doubleList.Back()
 	if element != nil {
 		cache.doubleList.Remove(element)
 		node := element.Value.(*cacheNode)
 		delete(cache.cacheMap, node.key)
-		cache.usedMemory -= calculateCacheNodeMemory(node)
-		if cache.OnEvicted != nil {
-			cache.OnEvicted(node.key, node.value)
+		cache.usedMemory -= getCacheNodeMemory(node)
+		if cache.onEvicted != nil {
+			cache.onEvicted(node.key, node.value)
 		}
 	}
 }
 
+// Put adds or update value to the cache.
 func (cache *Cache) Put(key string, value CacheNodeValue) {
 	if element, ok := cache.cacheMap[key]; ok {
 		cache.doubleList.MoveToFront(element)
@@ -60,18 +69,25 @@ func (cache *Cache) Put(key string, value CacheNodeValue) {
 		cache.usedMemory += int64(value.Len()) - int64(node.value.Len())
 		node.value = value
 	} else {
-		front := cache.doubleList.PushFront(&cacheNode{
-			key:   key,
+		node := &cacheNode{
+			key: key,
 			value: value,
-		})
-		cache.cacheMap[key] = front
-		cache.usedMemory += calculateCacheNodeMemory(front.Value.(*cacheNode))
+		}
+		el := cache.doubleList.PushFront(node)
+		cache.cacheMap[key] = el
+		cache.usedMemory += getCacheNodeMemory(node)
 	}
 	for cache.maxMemory != 0 && cache.usedMemory > cache.maxMemory {
 		cache.RemoveLeastRecently()
 	}
 }
 
-func calculateCacheNodeMemory(node *cacheNode) int64 {
+func getCacheNodeMemory(node *cacheNode) int64 {
 	return int64(len(node.key)) + int64(node.value.Len())
 }
+
+
+
+
+
+

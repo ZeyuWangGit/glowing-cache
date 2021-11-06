@@ -23,8 +23,8 @@ func main() {
 			return nil, fmt.Errorf("%s not exist", key)
 		}))
 
-	addr := "localhost:9090"
+	addr := "localhost:9999"
 	peers := glowingcache.NewHttpPool(addr)
-	log.Println("geecache is running at", addr)
+	log.Println("glowingcache is running at", addr)
 	log.Fatal(http.ListenAndServe(addr, peers))
 }
