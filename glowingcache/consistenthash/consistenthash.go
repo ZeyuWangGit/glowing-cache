@@ -1,4 +1,4 @@
-package glowingcache
+package consistenthash
 
 import (
 	"hash/crc32"
@@ -35,7 +35,7 @@ func New(replicas int, fn HashFunc) *Map {
 func (m *Map) Add(nodeNames ...string) {
 	for _, nodeName := range nodeNames {
 		for i := 0; i < m.replicas; i++ {
-			virtualNodeName := nodeName + "-" + strconv.Itoa(i)
+			virtualNodeName := strconv.Itoa(i) + nodeName
 			virtualNodeHash := int(m.hashFunc([]byte(virtualNodeName)))
 			m.hashCircle = append(m.hashCircle, virtualNodeHash)
 			m.hashMap[virtualNodeHash] = nodeName
