@@ -2,6 +2,7 @@ package glowingcache
 
 import (
 	"fmt"
+	"glowing-cache/glowingcache/singleflight"
 	"log"
 	"sync"
 )
@@ -11,6 +12,7 @@ type Group struct {
 	getter    Getter
 	mainCache *cache
 	peer      PeerPicker
+	loader    *singleflight.Group
 }
 
 var (
@@ -30,6 +32,7 @@ func NewGroup(name string, maxSize int64, getter Getter) *Group {
 		mainCache: &cache{
 			maxSize: maxSize,
 		},
+		loader: &singleflight.Group{},
 	}
 	groups[name] = group
 	return group
@@ -53,7 +56,7 @@ func (g *Group) Get(key string) (ByteView, error) {
 	return g.loadFromSource(key)
 }
 
-func (g *Group) RegisterPeer(peer PeerPicker)  {
+func (g *Group) RegisterPeer(peer PeerPicker) {
 	if g.peer != nil {
 		panic("RegisterPeerPicker called more than once")
 	}
@@ -61,15 +64,24 @@ func (g *Group) RegisterPeer(peer PeerPicker)  {
 }
 
 func (g *Group) loadFromSource(key string) (value ByteView, err error) {
-	if g.peer != nil {
-		if peerGetter, ok := g.peer.PickPeer(key); ok {
-			if value, err = g.getFromPeers(peerGetter, key); err == nil {
-				return value, nil
+
+	view, err := g.loader.Do(key, func() (interface{}, error) {
+		if g.peer != nil {
+			if peerGetter, ok := g.peer.PickPeer(key); ok {
+				if value, err = g.getFromPeers(peerGetter, key); err == nil {
+					return value, nil
+				}
+				log.Println("[GeeCache] Failed to get from peer", err)
 			}
-			log.Println("[GeeCache] Failed to get from peer", err)
 		}
+		return g.getFromLocal(key)
+	})
+	if err != nil {
+		return view.(ByteView), err
 	}
-	return g.getFromLocal(key)
+	return
+
+
 }
 
 func (g *Group) getFromLocal(key string) (ByteView, error) {
